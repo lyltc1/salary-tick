@@ -246,6 +246,15 @@ private fun launchRocket(sink: MutableList<Rocket>) {
 }
 
 /**
+ * 色相归一到 0..360。
+ *
+ * Kotlin 的 % 对负数返回负数：火星那圈色相要往两边各抖 24°，
+ * 基准色相落在 0 附近时就会算出 -2.4 这种值，Color.hsv 直接抛
+ * IllegalArgumentException 把整个 App 带崩。所以凡是算出来的色相都过一遍这里。
+ */
+private fun Float.wrapHue(): Float = ((this % 360f) + 360f) % 360f
+
+/**
  * 到顶爆炸：一记爆闪 + 一圈彩色火星 + 一把金币。
  * 火星走整圈 360°，金币走朝上的扇形，散得慢一点，让人看清「掉钱」。
  */
@@ -264,7 +273,7 @@ private fun explode(sink: MutableList<Particle>, x: Float, y: Float, hue: Float)
             spinSpeed = 0f,
             life = 0.34f,
             kind = Kind.FLASH,
-            color = Color.hsv(hue % 360f, 0.30f, 1f),
+            color = Color.hsv(hue.wrapHue(), 0.30f, 1f),
             gravity = 0f,
             drag = 0f,
             twinkleSeed = 0f,
@@ -288,7 +297,7 @@ private fun explode(sink: MutableList<Particle>, x: Float, y: Float, hue: Float)
                 life = 1.1f + Random.nextFloat() * 1.0f,
                 kind = Kind.SPARK,
                 color = Color.hsv(
-                    hue = (hue + Random.nextFloat() * 48f - 24f) % 360f,
+                    hue = (hue + Random.nextFloat() * 48f - 24f).wrapHue(),
                     saturation = 0.72f + Random.nextFloat() * 0.28f,
                     value = 1f,
                 ),
@@ -458,7 +467,7 @@ private fun DrawScope.drawGlow(breath: Float) {
 private fun DrawScope.drawRocket(rocket: Rocket, w: Float, h: Float, unit: Float) {
     val head = Offset(rocket.x * w, rocket.y * h)
     drawLine(
-        color = Color.hsv(rocket.hue % 360f, 0.75f, 1f),
+        color = Color.hsv(rocket.hue.wrapHue(), 0.75f, 1f),
         start = Offset(rocket.prevX * w, rocket.prevY * h),
         end = head,
         strokeWidth = unit * 0.010f,
@@ -466,7 +475,7 @@ private fun DrawScope.drawRocket(rocket: Rocket, w: Float, h: Float, unit: Float
         cap = StrokeCap.Round,
     )
     drawCircle(
-        color = Color.hsv(rocket.hue % 360f, 0.45f, 1f),
+        color = Color.hsv(rocket.hue.wrapHue(), 0.45f, 1f),
         radius = unit * 0.028f,
         center = head,
     )
