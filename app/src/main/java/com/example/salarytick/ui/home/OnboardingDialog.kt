@@ -39,10 +39,11 @@ fun OnboardingDialog(
 ) {
     var mode by remember { mutableStateOf(SalaryInputMode.MONTHLY) }
     var input by remember { mutableStateOf(defaultMonthly.toPlainString()) }
+    // 换算的「真值」：随输入更新，切换单位时用它反算。
+    // 不能直接拿输入框里的数反算 —— 日薪被截成两位后再乘回去会多出几分钱。
+    var baseMonthly by remember { mutableStateOf(defaultMonthly) }
 
-    val amount: BigDecimal = input.toBigDecimalOrNull()
-        ?.takeIf { it > BigDecimal.ZERO }
-        ?: BigDecimal.ZERO
+    val amount: BigDecimal = input.amountOrZero()
     val monthly: BigDecimal = mode.toMonthly(amount)
 
     AlertDialog(
@@ -54,7 +55,13 @@ fun OnboardingDialog(
                     SalaryInputMode.entries.forEach { item ->
                         FilterChip(
                             selected = mode == item,
-                            onClick = { mode = item },
+                            onClick = {
+                                // 换单位时保持「税前月薪」不变，把数字换算成新单位显示
+                                if (item != mode) {
+                                    mode = item
+                                    input = item.fromMonthly(baseMonthly)
+                                }
+                            },
                             label = { Text(item.label) },
                         )
                     }
@@ -62,7 +69,11 @@ fun OnboardingDialog(
 
                 OutlinedTextField(
                     value = input,
-                    onValueChange = { input = it.sanitizeAmount() },
+                    onValueChange = {
+                        val sanitized = it.sanitizeAmount()
+                        input = sanitized
+                        baseMonthly = mode.toMonthly(sanitized.amountOrZero())
+                    },
                     label = { Text(mode.label) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -94,17 +105,34 @@ private enum class SalaryInputMode(val label: String) {
     DAILY("日薪"),
 }
 
+private val MONTHS_PER_YEAR: BigDecimal = BigDecimal("12")
+
 private fun SalaryInputMode.toMonthly(amount: BigDecimal): BigDecimal = when (this) {
     SalaryInputMode.MONTHLY -> amount
-    SalaryInputMode.YEARLY -> amount.divide(BigDecimal("12"), 2, RoundingMode.HALF_UP)
+    SalaryInputMode.YEARLY -> amount.divide(MONTHS_PER_YEAR, 2, RoundingMode.HALF_UP)
     SalaryInputMode.DAILY -> amount.multiply(SalaryConfig.LEGAL_PAID_DAYS)
 }
+
+/**
+ * 月薪 → 当前单位的显示值。空输入返回空串，避免切过去先冒出一个 "0"。
+ * 日薪两位小数就够（月薪 10000 → 459.77）。
+ */
+private fun SalaryInputMode.fromMonthly(monthly: BigDecimal): String =
+    if (monthly <= BigDecimal.ZERO) "" else when (this) {
+        SalaryInputMode.MONTHLY -> monthly
+        SalaryInputMode.YEARLY -> monthly.multiply(MONTHS_PER_YEAR)
+        SalaryInputMode.DAILY -> monthly.divide(SalaryConfig.LEGAL_PAID_DAYS, 2, RoundingMode.HALF_UP)
+    }.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
 
 private fun SalaryInputMode.hint(monthly: BigDecimal): String = when (this) {
     SalaryInputMode.MONTHLY -> "填税前月薪（基础 + 绩效），之后可在设置里改。"
     SalaryInputMode.YEARLY -> "年薪 ÷ 12 = 税前月薪 ${monthly.formatCny()}"
     SalaryInputMode.DAILY -> "日薪 × 21.75 = 税前月薪 ${monthly.formatCny()}"
 }
+
+/** 空 / 非法输入一律当 0，不让计算炸掉 */
+private fun String.amountOrZero(): BigDecimal =
+    toBigDecimalOrNull()?.takeIf { it > BigDecimal.ZERO } ?: BigDecimal.ZERO
 
 /** 只留数字和一个小数点，避免 "1.2.3" 这种非法输入 */
 private fun String.sanitizeAmount(): String {
