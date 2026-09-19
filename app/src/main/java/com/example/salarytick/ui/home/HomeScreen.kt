@@ -53,6 +53,8 @@ import com.example.salarytick.data.SalarySettings
 import com.example.salarytick.data.SettingsRepository
 import com.example.salarytick.domain.DayType
 import com.example.salarytick.domain.HolidayCalendar
+import com.example.salarytick.domain.SalaryConfig
+import com.example.salarytick.domain.SalaryDefaults
 import com.example.salarytick.domain.SalaryEngine
 import kotlinx.coroutines.delay
 import java.math.BigDecimal
@@ -91,6 +93,8 @@ fun SalaryTickApp(modifier: Modifier = Modifier) {
     // 设置已落盘：改完保存，重启 App 不丢
     var settings by remember { mutableStateOf(repository.load()) }
     var showSettings by remember { mutableStateOf(false) }
+    // 没走过引导就弹一次；填完或跳过都会落盘，之后不再打扰
+    var showOnboarding by remember { mutableStateOf(!settings.onboarded) }
 
     // 日期、当天类型、班段状态，1 秒刷一次就够
     var now by remember { mutableStateOf(LocalDateTime.now()) }
@@ -152,6 +156,27 @@ fun SalaryTickApp(modifier: Modifier = Modifier) {
                 monthEndSaturdayOvertime = settings.monthEndSaturdayOvertime,
             )
         }
+    }
+
+    if (showOnboarding) {
+        OnboardingDialog(
+            defaultMonthly = SalaryDefaults.config.monthlyGross,
+            onConfirm = { monthly ->
+                val next = settings.copy(
+                    config = SalaryConfig(monthlyGross = monthly),
+                    onboarded = true,
+                )
+                settings = next
+                repository.save(next)
+                showOnboarding = false
+            },
+            onSkip = {
+                val next = settings.copy(onboarded = true)
+                settings = next
+                repository.save(next)
+                showOnboarding = false
+            },
+        )
     }
 
     if (showSettings) {
