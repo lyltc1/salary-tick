@@ -22,4 +22,8 @@ object Slogans {
 
     /** 随机一条。调用方用 remember 存住，只在本次打开时选一次 */
     fun random(): String = ALL.random()
+
+    /** 换一条：尽量不跟当前这条重复（池子就几条，纯随机很容易抽回同一句） */
+    fun next(current: String): String =
+        ALL.filter { it != current }.ifEmpty { ALL }.random()
 }

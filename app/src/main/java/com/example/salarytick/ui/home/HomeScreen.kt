@@ -9,6 +9,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -107,7 +108,8 @@ fun SalaryTickApp(modifier: Modifier = Modifier) {
     }
 
     // 每次打开 App 随机一句；靠 remember 存住，页面重绘不会换来换去
-    val slogan = remember { Slogans.random() }
+    // 点一下这句就换一条 —— 不另设按钮，整块文字就是热区
+    var slogan by remember { mutableStateOf(Slogans.random()) }
 
     val config = settings.config
     val date: LocalDate = now.toLocalDate()
@@ -138,8 +140,8 @@ fun SalaryTickApp(modifier: Modifier = Modifier) {
         ) {
             TitleRow(onSettingsClick = { showSettings = true })
 
-            // 每次打开随机换一句；长短句都能放下，最多三行
-            SloganText(slogan = slogan)
+            // 每次打开随机换一句；轻点再换一条
+            SloganText(slogan = slogan, onRefresh = { slogan = Slogans.next(slogan) })
 
             HeroCard(
                 perSecond = perSecond,
@@ -222,12 +224,16 @@ private fun TitleRow(onSettingsClick: () -> Unit) {
  *
  * 文案长短差很多，所以这里占满整宽、独立成行（不再挤在标题旁边），
  * 最多三行、超出才省略 —— 最长那句也就两行半，正常不会被截断。
+ *
+ * 整块文字都可点，点一下换一句：不留按钮，观感上它只是一句文案。
  */
 @Composable
-private fun SloganText(slogan: String) {
+private fun SloganText(slogan: String, onRefresh: () -> Unit) {
     Text(
         text = "“$slogan”",
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onRefresh() },
         fontSize = 13.sp,
         lineHeight = 20.sp,
         maxLines = 3,
