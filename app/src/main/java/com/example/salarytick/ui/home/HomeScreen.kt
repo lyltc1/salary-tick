@@ -263,12 +263,23 @@ private fun TitleRow(onSettingsClick: () -> Unit) {
  * 文案长短差很多，所以这里占满整宽、独立成行（不再挤在标题旁边），
  * 最多三行、超出才省略 —— 最长那句也就两行半，正常不会被截断。
  *
+ * 名人名言写成「正文——作者」：引号只包住正文，署名留在引号外，
+ * 读起来是“正文”——作者，而不是把人名也塞进引号里。
+ *
  * 整块文字都可点，点一下换一句：不留按钮，观感上它只是一句文案。
  */
 @Composable
 private fun SloganText(slogan: String, onRefresh: () -> Unit) {
+    val authorMark = "——"
+    val text = if (slogan.contains(authorMark)) {
+        val body = slogan.substringBefore(authorMark)
+        val author = slogan.substringAfter(authorMark)
+        "“$body”$authorMark$author"
+    } else {
+        "“$slogan”"
+    }
     Text(
-        text = "“$slogan”",
+        text = text,
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onRefresh() },
