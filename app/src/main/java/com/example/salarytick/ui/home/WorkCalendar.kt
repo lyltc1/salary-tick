@@ -50,6 +50,8 @@ import java.time.LocalDate
 @Composable
 fun WorkCalendarCard(
     today: LocalDate,
+    /** 月末周六（每月最后一个星期六）算不算加班日 —— 设置里的开关 */
+    monthEndSaturdayOvertime: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     // 只存「当月 1 号」，翻月就是加减一个月；往前不允许越过 2025 年 1 月
@@ -92,7 +94,7 @@ fun WorkCalendarCard(
                         } else {
                             DayCell(
                                 date = date,
-                                type = HolidayCalendar.dayTypeOf(date),
+                                type = HolidayCalendar.dayTypeOf(date, monthEndSaturdayOvertime),
                                 selected = date == selected,
                                 isToday = date == today,
                                 onClick = { selected = date },
@@ -117,7 +119,10 @@ fun WorkCalendarCard(
             Legend()
 
             Spacer(modifier = Modifier.height(12.dp))
-            SelectedDetail(selected = selected)
+            SelectedDetail(
+                selected = selected,
+                monthEndSaturdayOvertime = monthEndSaturdayOvertime,
+            )
         }
     }
 }
@@ -243,8 +248,11 @@ private fun LegendDot(type: DayType) {
 
 /** 选中那一天到底是怎么回事 */
 @Composable
-private fun SelectedDetail(selected: LocalDate) {
-    val type = HolidayCalendar.dayTypeOf(selected)
+private fun SelectedDetail(
+    selected: LocalDate,
+    monthEndSaturdayOvertime: Boolean,
+) {
+    val type = HolidayCalendar.dayTypeOf(selected, monthEndSaturdayOvertime)
     val holiday = HolidayCalendar.holidayNameOf(selected)
     val detail = buildString {
         append("${selected.monthValue}月${selected.dayOfMonth}日")

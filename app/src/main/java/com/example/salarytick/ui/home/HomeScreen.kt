@@ -106,7 +106,10 @@ fun SalaryTickApp(modifier: Modifier = Modifier) {
     val time: LocalTime = now.toLocalTime()
 
     // 法定节假日 / 调休 / 加班日都由日历判定；工资口径不跟着变（加班与平时一样）
-    val dayType: DayType = HolidayCalendar.dayTypeOf(date)
+    val dayType: DayType = HolidayCalendar.dayTypeOf(
+        date = date,
+        monthEndSaturdayOvertime = settings.monthEndSaturdayOvertime,
+    )
     // 每秒 / 每分钟入账的单价（8 小时口径）
     val perSecond: BigDecimal = SalaryEngine.tickPerSecond(config)
     val perMinute: BigDecimal = SalaryEngine.tickPerMinute(config)
@@ -144,7 +147,10 @@ fun SalaryTickApp(modifier: Modifier = Modifier) {
                 hourly = SalaryEngine.hourlyRate(config),
             )
 
-            WorkCalendarCard(today = date)
+            WorkCalendarCard(
+                today = date,
+                monthEndSaturdayOvertime = settings.monthEndSaturdayOvertime,
+            )
         }
     }
 
@@ -152,9 +158,9 @@ fun SalaryTickApp(modifier: Modifier = Modifier) {
         SettingsDialog(
             settings = settings,
             onDismiss = { showSettings = false },
-            onConfirm = { newConfig ->
-                settings = settings.copy(config = newConfig)
-                repository.save(settings)
+            onConfirm = { newSettings ->
+                settings = newSettings
+                repository.save(newSettings)
                 showSettings = false
             },
         )

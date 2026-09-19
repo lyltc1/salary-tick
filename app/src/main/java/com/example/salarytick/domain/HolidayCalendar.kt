@@ -28,7 +28,7 @@ import java.time.temporal.TemporalAdjusters
  * ── 判定优先级 ────────────────────────────────────────────
  *   1. 法定节假日（含调休连休）-> 放假
  *   2. 调休补班（周末但要上班）-> 上班
- *   3. 每月最后一个星期六，且不是法定节假日 -> 公司加班日
+ *   3. 每月最后一个星期六，且不是法定节假日 -> 公司加班日（可在设置里关掉）
  *   4. 周六 / 周日 -> 休息
  *   5. 其余 -> 工作日
  *
@@ -114,16 +114,25 @@ object HolidayCalendar {
     fun lastSaturdayOf(date: LocalDate): LocalDate =
         date.with(TemporalAdjusters.lastInMonth(DayOfWeek.SATURDAY))
 
-    /** 这一天属于哪种日子 */
-    fun dayTypeOf(date: LocalDate): DayType {
+    /**
+     * 这一天属于哪种日子。
+     *
+     * @param monthEndSaturdayOvertime 关掉后，每月最后一个星期六按普通周末算（休息）。
+     */
+    fun dayTypeOf(
+        date: LocalDate,
+        monthEndSaturdayOvertime: Boolean = true,
+    ): DayType {
         val plan = PLANS[date.year]
         if (plan != null) {
             if (plan.holidays.any { date in it }) return DayType.LEGAL_HOLIDAY
             if (date in plan.makeupWorkdays) return DayType.MAKEUP_WORKDAY
         }
 
-        // 每月最后一个星期六：不是法定节假日，就按公司加班日算
-        if (date == lastSaturdayOf(date)) return DayType.COMPANY_OVERTIME
+        // 每月最后一个星期六：不是法定节假日，开关打开才算公司加班日
+        if (monthEndSaturdayOvertime && date == lastSaturdayOf(date)) {
+            return DayType.COMPANY_OVERTIME
+        }
 
         val weekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
         return if (weekend) DayType.WEEKEND_OFF else DayType.WORKDAY

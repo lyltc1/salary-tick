@@ -3,14 +3,17 @@ package com.example.salarytick.ui.home
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -18,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -31,14 +35,16 @@ import java.math.BigDecimal
 /**
  * 薪资设置弹窗。改动会写进本地存储，重启 App 不丢。
  *
- * 只开放「税前月薪」一项：每日工时固定 8 小时、月计薪天数固定 21.75，
- * 两者都是法定/公司口径，不再提供设置入口。
+ * 可改的就两项：
+ *   1. 税前月薪
+ *   2. 月末周六算不算加班（每月最后一个星期六），默认打开
+ * 每日工时固定 8 小时、月计薪天数固定 21.75，都是法定/公司口径，不再提供设置入口。
  */
 @Composable
 fun SettingsDialog(
     settings: SalarySettings,
     onDismiss: () -> Unit,
-    onConfirm: (SalaryConfig) -> Unit,
+    onConfirm: (SalarySettings) -> Unit,
 ) {
     val config = settings.config
 
@@ -47,6 +53,7 @@ fun SettingsDialog(
     val hourly = SalaryEngine.hourlyRate(config)
 
     var monthly by remember { mutableStateOf(config.monthlyGross.toPlainString()) }
+    var monthEndSaturday by remember { mutableStateOf(settings.monthEndSaturdayOvertime) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -60,6 +67,15 @@ fun SettingsDialog(
                 NumberField("税前月薪", monthly) { monthly = it }
 
                 Spacer(modifier = Modifier.height(4.dp))
+                SectionLabel("加班日")
+                ToggleRow(
+                    title = "月末周六算加班",
+                    detail = "每月最后一个星期六记为公司加班日；关掉后按普通周末休息。",
+                    checked = monthEndSaturday,
+                    onCheckedChange = { monthEndSaturday = it },
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
                 SectionLabel("计算口径")
                 ExplanationRow("日薪", "税前月薪 ${config.monthlyGross.formatCny()} ÷ ${config.legalPaidDays.toPlainString()}（法定计薪天数）= ${daily.formatCny()}/天")
                 ExplanationRow("时薪", "日薪 ÷ ${config.workHoursPerDay.toPlainString()}h（每日标准工时）= ${hourly.formatCny()}/小时")
@@ -69,8 +85,11 @@ fun SettingsDialog(
             TextButton(
                 onClick = {
                     onConfirm(
-                        SalaryConfig(
-                            monthlyGross = monthly.toAmountOr(config.monthlyGross),
+                        settings.copy(
+                            config = SalaryConfig(
+                                monthlyGross = monthly.toAmountOr(config.monthlyGross),
+                            ),
+                            monthEndSaturdayOvertime = monthEndSaturday,
                         ),
                     )
                 },
@@ -78,6 +97,36 @@ fun SettingsDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
+}
+
+/** 一行开关：标题 + 说明 + Switch */
+@Composable
+private fun ToggleRow(
+    title: String,
+    detail: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = detail,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
 }
 
 /** 口径说明的一行：名词 + 公式 */

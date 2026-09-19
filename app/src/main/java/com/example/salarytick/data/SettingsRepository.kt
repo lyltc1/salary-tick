@@ -11,9 +11,16 @@ import java.math.BigDecimal
  */
 data class SalarySettings(
     val config: SalaryConfig = SalaryDefaults.config,
+    /** 月末周六算加班日（每月最后一个星期六） */
+    val monthEndSaturdayOvertime: Boolean = DEFAULT_MONTH_END_SATURDAY_OVERTIME,
     /** 是否已经走过首次启动引导（填过一次薪资） */
     val onboarded: Boolean = false,
-)
+) {
+    companion object {
+        /** 默认打开：月末周六记为公司加班日 */
+        const val DEFAULT_MONTH_END_SATURDAY_OVERTIME: Boolean = true
+    }
+}
 
 /**
  * 设置的本地存取。
@@ -30,12 +37,17 @@ class SettingsRepository(context: Context) {
         config = SalaryConfig(
             monthlyGross = loadAmount(KEY_MONTHLY, SalaryDefaults.config.monthlyGross),
         ),
+        monthEndSaturdayOvertime = prefs.getBoolean(
+            KEY_MONTH_END_SATURDAY,
+            DEFAULT_MONTH_END_SATURDAY_OVERTIME,
+        ),
         onboarded = prefs.getBoolean(KEY_ONBOARDED, false),
     )
 
     fun save(settings: SalarySettings) {
         prefs.edit()
             .putString(KEY_MONTHLY, settings.config.monthlyGross.toPlainString())
+            .putBoolean(KEY_MONTH_END_SATURDAY, settings.monthEndSaturdayOvertime)
             .putBoolean(KEY_ONBOARDED, settings.onboarded)
             .apply()
     }
@@ -49,6 +61,7 @@ class SettingsRepository(context: Context) {
     companion object {
         private const val PREFS_NAME = "salary_tick_settings"
         private const val KEY_MONTHLY = "monthly_gross"
+        private const val KEY_MONTH_END_SATURDAY = "month_end_saturday_overtime"
         private const val KEY_ONBOARDED = "onboarded"
     }
 }
