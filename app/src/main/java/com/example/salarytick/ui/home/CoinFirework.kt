@@ -6,6 +6,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -154,6 +155,10 @@ fun CoinFirework(
     val rockets = remember { ArrayList<Rocket>(8) }
     val labels = remember { ArrayList<LabelParticle>(16) }
     val textMeasurer = rememberTextMeasurer()
+    val foreground = rememberIsForeground()
+    // 帧循环是 LaunchedEffect(Unit)，不会因前台状态变化重启，
+    // 所以要用 UpdatedState 读到最新值，否则永远停在启动那一刻
+    val foregroundNow by rememberUpdatedState(foreground)
 
     // 币面上的 ¥ 只有一种，建一次就够，别每帧 measure
     val yenStyle = remember {
@@ -167,6 +172,17 @@ fun CoinFirework(
         var last = withFrameNanos { it }
         while (true) {
             val now = withFrameNanos { it }
+            // 切到后台：Choreographer 照样送帧，这里不推演，也不留残粒子，
+            // 否则「锁屏一小时 = 满帧跑一小时」。回前台第一帧 last 已更新，dt 不会突然变大。
+            if (!foregroundNow) {
+                if (particles.isNotEmpty() || rockets.isNotEmpty() || labels.isNotEmpty()) {
+                    particles.clear()
+                    rockets.clear()
+                    labels.clear()
+                }
+                last = now
+                continue
+            }
             // 掉帧 / 后台回来时 dt 会很大，夹住 50ms，免得重力把粒子甩飞
             val dt = ((now - last) / 1_000_000f).coerceAtMost(50f) / 1000f
             last = now
@@ -179,22 +195,26 @@ fun CoinFirework(
     }
 
     LaunchedEffect(secondTick) {
+        // 后台照样会走这一拍，不拦住的话飘字会一直往 labels 里堆
+        if (!foreground) return@LaunchedEffect
         if (particles.size < MAX_PARTICLES) {
             spawnFizz(particles)
         }
-        labels.add(newLabel(textMeasurer, secondLabel, strong = false))
+        addLabel(labels, newLabel(textMeasurer, secondLabel, strong = false))
     }
 
     LaunchedEffect(minuteTick) {
+        if (!foreground) return@LaunchedEffect
         // 连发，间隔 180ms，比同时炸开更像一场表演
         repeat(ROCKETS_PER_MINUTE) { index ->
             if (index > 0) kotlinx.coroutines.delay(180L)
             launchRocket(rockets)
         }
-        labels.add(newLabel(textMeasurer, minuteLabel, strong = true))
+        addLabel(labels, newLabel(textMeasurer, minuteLabel, strong = true))
     }
 
     LaunchedEffect(hourTick) {
+        if (!foreground) return@LaunchedEffect
         kotlinx.coroutines.delay(320L)
         repeat(ROCKETS_PER_HOUR) { index ->
             if (index > 0) kotlinx.coroutines.delay(200L)
@@ -243,6 +263,14 @@ private fun launchRocket(sink: MutableList<Rocket>) {
             hue = Random.nextFloat() * 360f,
         )
     )
+}
+
+/** 飘字上限：万一某拍没被帧循环清掉，也不会把内存堆爆 */
+private const val MAX_LABELS = 24
+
+private fun addLabel(sink: MutableList<LabelParticle>, label: LabelParticle) {
+    if (sink.size >= MAX_LABELS) sink.removeAt(0)
+    sink.add(label)
 }
 
 /**

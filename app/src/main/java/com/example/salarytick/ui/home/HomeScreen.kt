@@ -34,10 +34,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,10 +48,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.salarytick.core.money.formatCny
 import com.example.salarytick.data.SalarySettings
 import com.example.salarytick.data.SettingsRepository
@@ -66,6 +71,35 @@ import java.time.LocalTime
 
 /** 一小时的秒数 —— 主金额按「小时制」走，整点清零 */
 private const val HOUR_SECONDS: Long = 3_600L
+
+/**
+ * 当前是否在前台（Activity 至少走到 STARTED）。
+ *
+ * 背景：App 按了 Home 之后，Choreographer 照样给帧、协程里的 delay 循环照样醒 ——
+ * 于是粒子每帧推演、金额每 100ms 重算。实测放在后台一分钟 CPU 稳定吃 30%，
+ * 手机白白发热掉电。凡是「一直在跑」的循环，都得先看这个开关。
+ *
+ * 回到前台会立刻变 true，时间类状态在下一拍就刷新，金额不会算错。
+ */
+@Composable
+internal fun rememberIsForeground(): Boolean {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var foreground by remember {
+        mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+    }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> foreground = true
+                Lifecycle.Event.ON_STOP -> foreground = false
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    return foreground
+}
 
 // 金币卡的调色：金底 + 深棕字，接近「一堆金币」的观感
 private val GoldTop = Color(0xFFFFE9A8)
@@ -98,11 +132,15 @@ fun SalaryTickApp(modifier: Modifier = Modifier) {
     // 没走过引导就弹一次；填完或跳过都会落盘，之后不再打扰
     var showOnboarding by remember { mutableStateOf(!settings.onboarded) }
 
+    val foreground = rememberIsForeground()
+    val foregroundNow by rememberUpdatedState(foreground)
+
     // 日期、当天类型、班段状态，1 秒刷一次就够
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
         while (true) {
-            now = LocalDateTime.now()
+            // 后台不刷：Composition 暂停时写了也没人看，白烧 CPU
+            if (foregroundNow) now = LocalDateTime.now()
             delay(1_000L)
         }
     }
@@ -323,10 +361,12 @@ private fun HeroCard(
  */
 @Composable
 private fun TickingAmount(perSecond: BigDecimal, modifier: Modifier = Modifier) {
+    val foreground by rememberUpdatedState(rememberIsForeground())
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
         while (true) {
-            now = LocalDateTime.now()
+            // 100ms 的心跳只在前台有意义；后台让它睡死，省电
+            if (foreground) now = LocalDateTime.now()
             delay(100L)
         }
     }
