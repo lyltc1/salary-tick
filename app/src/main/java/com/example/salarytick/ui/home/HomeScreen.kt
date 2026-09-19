@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.salarytick.core.money.formatCny
@@ -105,6 +106,9 @@ fun SalaryTickApp(modifier: Modifier = Modifier) {
         }
     }
 
+    // 每次打开 App 随机一句；靠 remember 存住，页面重绘不会换来换去
+    val slogan = remember { Slogans.random() }
+
     val config = settings.config
     val date: LocalDate = now.toLocalDate()
     val time: LocalTime = now.toLocalTime()
@@ -133,6 +137,9 @@ fun SalaryTickApp(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             TitleRow(onSettingsClick = { showSettings = true })
+
+            // 每次打开随机换一句；长短句都能放下，最多三行
+            SloganText(slogan = slogan)
 
             HeroCard(
                 perSecond = perSecond,
@@ -205,14 +212,28 @@ private fun TitleRow(onSettingsClick: () -> Unit) {
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
             )
-            Text(
-                text = "在工作中成长，于生活里安放自己",
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
         TextButton(onClick = onSettingsClick) { Text("设置") }
     }
+}
+
+/**
+ * 随机一句的展示位。
+ *
+ * 文案长短差很多，所以这里占满整宽、独立成行（不再挤在标题旁边），
+ * 最多三行、超出才省略 —— 最长那句也就两行半，正常不会被截断。
+ */
+@Composable
+private fun SloganText(slogan: String) {
+    Text(
+        text = "“$slogan”",
+        modifier = Modifier.fillMaxWidth(),
+        fontSize = 13.sp,
+        lineHeight = 20.sp,
+        maxLines = 3,
+        overflow = TextOverflow.Ellipsis,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
