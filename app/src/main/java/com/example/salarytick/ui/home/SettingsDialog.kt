@@ -79,6 +79,14 @@ fun SettingsDialog(
                 SectionLabel("计算口径")
                 ExplanationRow("日薪", "税前月薪 ${config.monthlyGross.formatCny()} ÷ ${config.legalPaidDays.toPlainString()}（法定计薪天数）= ${daily.formatCny()}/天")
                 ExplanationRow("时薪", "日薪 ÷ ${config.workHoursPerDay.toPlainString()}h（每日标准工时）= ${hourly.formatCny()}/小时")
+
+                // 版本号取自安装包；读不到就整块不显示
+                val version = rememberAppVersion()
+                if (version.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    SectionLabel("关于")
+                    ExplanationRow("版本", version)
+                }
             }
         },
         confirmButton = {

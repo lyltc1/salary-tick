@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -202,6 +203,8 @@ fun SalaryTickApp(modifier: Modifier = Modifier) {
                 today = date,
                 monthEndSaturdayOvertime = settings.monthEndSaturdayOvertime,
             )
+
+            VersionFooter()
         }
     }
 
@@ -263,23 +266,15 @@ private fun TitleRow(onSettingsClick: () -> Unit) {
  * 文案长短差很多，所以这里占满整宽、独立成行（不再挤在标题旁边），
  * 最多三行、超出才省略 —— 最长那句也就两行半，正常不会被截断。
  *
- * 名人名言写成「正文——作者」：引号只包住正文，署名留在引号外，
- * 读起来是“正文”——作者，而不是把人名也塞进引号里。
+ * 句子本身自带标点就够（名人名言的署名用破折号跟在后面），
+ * 这里不再额外套引号 —— 引号一多，反而像在喊口号。
  *
  * 整块文字都可点，点一下换一句：不留按钮，观感上它只是一句文案。
  */
 @Composable
 private fun SloganText(slogan: String, onRefresh: () -> Unit) {
-    val authorMark = "——"
-    val text = if (slogan.contains(authorMark)) {
-        val body = slogan.substringBefore(authorMark)
-        val author = slogan.substringAfter(authorMark)
-        "“$body”$authorMark$author"
-    } else {
-        "“$slogan”"
-    }
     Text(
-        text = text,
+        text = slogan,
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onRefresh() },
@@ -501,6 +496,20 @@ private fun RateRows(monthly: BigDecimal, daily: BigDecimal, hourly: BigDecimal)
             RateRow(label = "时薪", value = hourly.formatCny())
         }
     }
+}
+
+/** 页面最底一行版本，弱化到「扫一眼能看到，但不抢戏」 */
+@Composable
+private fun VersionFooter() {
+    val version = rememberAppVersion()
+    if (version.isEmpty()) return
+    Text(
+        text = "SalaryTick $version",
+        modifier = Modifier.fillMaxWidth(),
+        fontSize = 11.sp,
+        textAlign = TextAlign.Center,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+    )
 }
 
 @Composable
