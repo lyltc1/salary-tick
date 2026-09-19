@@ -22,3 +22,4 @@ object Slogans {
 
     /** 随机一条。调用方用 remember 存住，只在本次打开时选一次 */
     fun random(): String = ALL.random()
+}

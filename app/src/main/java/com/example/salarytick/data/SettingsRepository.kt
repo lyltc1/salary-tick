@@ -39,7 +39,7 @@ class SettingsRepository(context: Context) {
         ),
         monthEndSaturdayOvertime = prefs.getBoolean(
             KEY_MONTH_END_SATURDAY,
-            DEFAULT_MONTH_END_SATURDAY_OVERTIME,
+            SalarySettings.DEFAULT_MONTH_END_SATURDAY_OVERTIME,
         ),
         onboarded = prefs.getBoolean(KEY_ONBOARDED, false),
     )
